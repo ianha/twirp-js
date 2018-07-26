@@ -10,6 +10,44 @@ requestMessage.toObject = function () {
 };
 
 describe('client.js', function () {
+  describe('snakeCaseKeys()', function () {
+    test('should not snake case key', function () {
+      var result = client.snakeCaseKeys({'deck': {'key': 'value123'}});
+      expect(Object.keys(result).length).toBe(1);
+      expect(Object.keys(result)[0]).toBe('deck');
+      var value = result['deck'];
+      expect(Object.keys(value).length).toBe(1);
+      expect(Object.keys(value)[0]).toBe('key');
+      expect(value['key']).toBe('value123');
+    });
+    test('should snake case key', function () {
+      var result = client.snakeCaseKeys({'deckId': {'key': 'value123'}});
+      expect(Object.keys(result).length).toBe(1);
+      expect(Object.keys(result)[0]).toBe('deck_id');
+      var value = result['deck_id'];
+      expect(Object.keys(value).length).toBe(1);
+      expect(Object.keys(value)[0]).toBe('key');
+      expect(value['key']).toBe('value123');
+    });
+    test('should snake case key with _list postfix', function () {
+      var result = client.snakeCaseKeys({'deckIdList': {'key': 'value123'}});
+      expect(Object.keys(result).length).toBe(1);
+      expect(Object.keys(result)[0]).toBe('deck_id_list');
+      var value = result['deck_id_list'];
+      expect(Object.keys(value).length).toBe(1);
+      expect(Object.keys(value)[0]).toBe('key');
+      expect(value['key']).toBe('value123');
+    });
+    test('should snake case key with _list postfix removed if value is a list', function () {
+      var result = client.snakeCaseKeys({'deckIdList': ['value123']});
+      expect(Object.keys(result).length).toBe(1);
+      expect(Object.keys(result)[0]).toBe('deck_id');
+      var value = result['deck_id'];
+      expect(Array.isArray(value)).toBe(true);
+      expect(value.length).toBe(1);
+      expect(value[0]).toBe('value123');
+    });
+  });
   describe('extendHeaders()', function () {
     test('should return empty object on undefined', function () {
       var headers = client.extendHeaders();

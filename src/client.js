@@ -14,27 +14,60 @@ function makeHeaders(extras, mime, version, headers) {
 function extendHeaders(extras, headers) {
     var extendFrom = headers !== undefined ? headers : {};
     extras = extras !== undefined ? extras : {};
-    var obj = Object.keys(extras).reduce(function (o, k) {
+    var obj = Object.keys(extras).reduce(function(o, k) {
         o[k] = extras[k];
         return o;
     }, extendFrom);
     return obj;
 }
 
-var jsonSerialize = function (msg) {
-    return JSON.stringify(msg.toObject());
+// taken from here: https://gist.github.com/tan-yuki/3450323
+String.prototype.toSnakeCase = function() {
+    var upperChars = this.match(/([A-Z])/g);
+    if (!upperChars) {
+        return this;
+    }
+
+    var str = this.toString();
+    for (var i = 0, n = upperChars.length; i < n; i++) {
+        str = str.replace(new RegExp(upperChars[i]), '_' + upperChars[i].toLowerCase());
+    }
+
+    if (str.slice(0, 1) === '_') {
+        str = str.slice(1);
+    }
+
+    return str;
 };
-var jsonDeserialize = function (res) {
+
+var snakeCaseKeys = function(obj) {
+    var newObj = {};
+    Object.keys(obj).forEach(function(key) {
+        var protoKey = key.toSnakeCase();
+        if (protoKey.endsWith('_list') && Array.isArray(obj[key])) {
+            protoKey = protoKey.substr(0, protoKey.length - 5);
+        }
+        newObj[protoKey] = obj[key];
+    });
+    return newObj;
+};
+
+var jsonSerialize = function(msg) {
+    var obj = msg.toObject();
+    var snakeCasedObj = snakeCaseKeys(obj);
+    return JSON.stringify(snakeCasedObj);
+};
+var jsonDeserialize = function(res) {
     return res.json();
 };
 
-var clientFactory = function (fetchFn, serializer, deserializer) {
-    return function (baseurl, serviceName, twirpVersion, useJSON, extraHeaders) {
+var clientFactory = function(fetchFn, serializer, deserializer) {
+    return function(baseurl, serviceName, twirpVersion, useJSON, extraHeaders) {
         var endpoint = baseurl.replace(/\/$/, "") + "/twirp/" + serviceName + "/";
         var mimeType = useJSON ? "application/json" : "application/protobuf";
         var serialize = useJSON ? jsonSerialize : serializer;
         var headers = makeHeaders(extraHeaders, mimeType, twirpVersion);
-        var rpc = function (method, requestMsg, responseType, customHeaders) {
+        var rpc = function(method, requestMsg, responseType, customHeaders) {
             var headersWithCustom = extendHeaders(customHeaders, headers);
             var deserialize = useJSON ?
                 jsonDeserialize :
@@ -45,7 +78,7 @@ var clientFactory = function (fetchFn, serializer, deserializer) {
                 redirect: "manual",
                 headers: headersWithCustom
             };
-            return fetchFn(endpoint + method, opts).then(function (res) {
+            return fetchFn(endpoint + method, opts).then(function(res) {
                 // 200 is the only valid response
                 if (res.status !== 200) {
                     return resToError(res);
@@ -61,7 +94,8 @@ var clientFactory = function (fetchFn, serializer, deserializer) {
 module.exports = {
     clientFactory: clientFactory,
     makeHeaders: makeHeaders, // export for testing purposes
-    extendHeaders: extendHeaders // export for testing purposes
+    extendHeaders: extendHeaders, // export for testing purposes
+    snakeCaseKeys: snakeCaseKeys // export for testing purposes
 };
 
 function twirpError(obj) {
@@ -75,13 +109,13 @@ function twirpError(obj) {
 // Twirp Error implementation
 function resToError(res) {
     return res.json()
-        .then(function (obj) {
+        .then(function(obj) {
                 if (!obj.code || !obj.msg) {
                     throw intermediateError(obj);
                 }
                 throw twirpError(obj);
             },
-            function () { // error decoding JSON error
+            function() { // error decoding JSON error
                 throw intermediateError({});
             });
 
@@ -100,7 +134,7 @@ function resToError(res) {
 // in the protobuf message.
 function buildMessage(protobufClass, data) {
     var msg = new protobufClass();
-    Object.keys(data).forEach(function (key) {
+    Object.keys(data).forEach(function(key) {
         var setter = "set" + key[0].toUpperCase() + key.slice(1);
         if (setter in msg) {
             msg[setter](data[key]);
