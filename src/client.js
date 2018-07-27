@@ -40,7 +40,35 @@ String.prototype.toSnakeCase = function() {
     return str;
 };
 
+function isDictionary(obj) {
+    if (!obj) return false;
+    if (Array.isArray(obj)) return false;
+    if (obj.constructor != Object) return false;
+    return true;
+};
+
 var snakeCaseKeys = function(obj) {
+    if (!isDictionary(obj) && !Array.isArray(obj)) {
+        return obj;
+    }
+    if (isDictionary(obj)) {
+        var newObj = snakeCaseObject(obj);
+        var rObj = {};
+        Object.keys(newObj).forEach(function(key) {
+            rObj[key] = snakeCaseKeys(newObj[key]);
+        });
+        return rObj;
+    }
+    if (Array.isArray(obj)) {
+        var rObj = obj.map(function(o) {
+            return snakeCaseKeys(o);
+        });
+        return rObj;
+    }
+    return obj;
+};
+
+var snakeCaseObject = function(obj) {
     var newObj = {};
     Object.keys(obj).forEach(function(key) {
         var protoKey = key.toSnakeCase();
@@ -50,7 +78,7 @@ var snakeCaseKeys = function(obj) {
         newObj[protoKey] = obj[key];
     });
     return newObj;
-};
+}
 
 var jsonSerialize = function(msg) {
     var obj = msg.toObject();
